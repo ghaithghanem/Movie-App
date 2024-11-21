@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:auto_route/annotations.dart';
 import 'package:auto_route/auto_route.dart';
-import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_bubble/chat_bubble.dart';
@@ -13,18 +13,14 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:intl/intl.dart';
 import 'package:movie_app/src/core/network/socketservice.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../../../../main.dart';
 import '../../../core/components/buttons/retry_button.dart';
 import '../../../core/components/indicator/base_indicator.dart';
 import '../../../core/database/hive.dart';
-import '../../../core/theme/colors/my_colors.dart';
 import '../../../domain/entities/export_entities.dart';
-import '../../_widgets/message/conversation/bottom_input_widget.dart';
-import '../../_widgets/shimmer/shimmer_loader.dart';
+import '../../_widgets/message/conversation/bottomInputWidget/chat_input_widget.dart';
 import '../../cubit/message/conversations/conversations_bloc.dart';
-import '../../cubit/message/get_message/get_message_cubit.dart';
 
 part '../../_widgets/message/conversation/conversation_appbar_widget.dart';
 part '../../_widgets/message/conversation/conversation_form_widget.dart';
@@ -60,7 +56,7 @@ class _ConversationView extends HookWidget {
   final Object heroTag;
 
   Future<String> _getUserId(HiveService hiveService) async {
-    final userId = await hiveService.getUserId();
+    final userId = hiveService.getUserId();
     if (userId == null || userId.isEmpty) {
       throw Exception('User ID not found');
     }
@@ -80,15 +76,11 @@ class _ConversationView extends HookWidget {
     final scrollController = useScrollController();
 
     useEffect(() {
-      Future<void> scrollDown() async {
-        await Future.delayed(Duration(milliseconds: 300));
-        final double end = scrollController.position.maxScrollExtent;
-        scrollController.jumpTo(end);
-        print('Scroll down executed');
-      }
-
-      Future<void> _initConversation() async {
+      final bloc = context.read<ConversationsBloc>();
+      Future<void> initConversation() async {
         try {
+          bloc.add(ResetConversationEvent());
+
           final fetchedUserId = await _getUserId(hiveService);
           userId.value = fetchedUserId;
           final fetchUsirId2 = messageDetail?.sender?.id ?? '';
@@ -99,9 +91,11 @@ class _ConversationView extends HookWidget {
             userId2.value = messageDetail?.sender?.id ?? '';
           }
 
-          context
-              .read<ConversationsBloc>()
-              .add(LoadConversationEvent(userId.value, userId2.value));
+          // Activate the conversation when entering
+          bloc.add(ActivateConversationEvent());
+
+          bloc.add(LoadConversationEvent(userId.value, userId2.value));
+          bloc.setCurrentConversation(userId.value, userId2.value);
 
           isLoading.value = false;
         } catch (e) {
@@ -110,27 +104,38 @@ class _ConversationView extends HookWidget {
         }
       }
 
-      _initConversation();
-      scrollDown();
-      return null; // No cleanup needed
+      initConversation();
+
+      // Cleanup when leaving the conversation
+      return () {
+        bloc.add(DeactivateConversationEvent());
+      };
     }, [messageDetail]);
     var width = MediaQuery.of(context).size.width;
     var height = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: ConversationAppbarWidget(messageDetail: messageDetail),
       body: Stack(
         children: [
+          // Background image
           Positioned.fill(
             child: Image.asset(
               'assets/images/space_backG.jpg',
               fit: BoxFit.cover,
             ),
           ),
+
+          // Check if initial loading is ongoing
           isLoading.value
-              ? Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator())
               : BlocBuilder<ConversationsBloc, ConversationsState>(
                   builder: (context, state) {
                     if (state is MessageError) {
+                      // Display error message with retry button
+                      if (kDebugMode) {
+                        print("Error encountered: ${state.message}");
+                      }
                       return Padding(
                         padding: const EdgeInsets.all(12),
                         child: RetryButton(
@@ -141,26 +146,33 @@ class _ConversationView extends HookWidget {
                                   userId.value, userId2.value)),
                         ),
                       );
-                    } else if (state is GetConversationLoading) {
-                      return Center(child: CircularProgressIndicator());
+                    } else if (state is GetConversationsLoading) {
+                      // Show loading indicator during initial loading
+                      return const Center(child: BaseIndicator());
                     } else if (state is GetConversationsLoaded) {
+                      // Messages loaded successfully
                       return Column(
                         children: [
                           Expanded(
                             child: _ConversationWidget(
-                              whenScrollTop: () async {
-                                context.read<ConversationsBloc>().add(
-                                    LoadNextPageEvent(
-                                        userId.value, userId2.value));
-                              },
                               messages: state.conversationMessages,
                               hasReachedMax: context
                                   .watch<ConversationsBloc>()
                                   .hasReachedMax,
                               scrollController: scrollController,
+                              whenScrollTop: () async {
+                                context.read<ConversationsBloc>().add(
+                                    LoadConversationEvent(
+                                        userId.value, userId2.value));
+                              },
                             ),
                           ),
-                          BottomInputWidget(
+                          if (state is LoadingMoreMessages)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: BaseIndicator(),
+                            ),
+                          ChatInputUI(
                             width: width,
                             height: height,
                             textFieldFocusNode: textFieldFocusNode,
@@ -171,8 +183,37 @@ class _ConversationView extends HookWidget {
                         ],
                       );
                     } else {
-                      /*return Center(child: Text('Unexpected state: $state')); */
+                      // Show BaseIndicator as fallback in unexpected states
                       return Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount:
+                                  10, // Dummy item count for loading effect
+                              itemBuilder: (_, index) =>
+                                  const BaseIndicator(), // Replace shimmer with BaseIndicator
+                            ),
+                          ),
+                          ChatInputUI(
+                            width: width,
+                            height: height,
+                            textFieldFocusNode: textFieldFocusNode,
+                            senderId: userId.value,
+                            receiverId: userId2.value,
+                            scrollController: scrollController,
+                          ),
+                        ],
+                      );
+                    }
+                  },
+                ),
+        ],
+      ),
+    );
+  }
+}
+/*
+ Column(
                         children: [
                           Expanded(
                             child: ListView.builder(
@@ -185,11 +226,11 @@ class _ConversationView extends HookWidget {
                                 highlightColor:
                                     MyColors.backgroundGey.withOpacity(0.04),
                                 enabled: true,
-                                child: messagesShimmer(),
+                                child: const messagesShimmer(),
                               ),
                             ),
                           ),
-                          BottomInputWidget(
+                          ChatInputUI(
                             width: width,
                             height: height,
                             textFieldFocusNode: textFieldFocusNode,
@@ -199,13 +240,4 @@ class _ConversationView extends HookWidget {
                           ),
                         ],
                       );
-
-                      /*BaseIndicator();*/
-                    }
-                  },
-                ),
-        ],
-      ),
-    );
-  }
-}
+  */

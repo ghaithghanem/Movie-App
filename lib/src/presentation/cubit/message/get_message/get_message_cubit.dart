@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/database/hive.dart';
 import '../../../../core/network/socketservice.dart';
@@ -18,11 +19,9 @@ class GetMessageCubit extends Cubit<GetMessageState> {
   GetMessageCubit(this._messageUsecases, this.userId, this._hiveService,
       this._socketService)
       : super(GetMessageInitial()) {
-    assert(userId.isNotEmpty, "userId cannot be null or empty");
-
     // Set up socket event listeners
     //_socketService.onNewMessage = _handleNewMessage;
-    _socketService.statusUpdate = _status;
+
     _socketService.onUserOnlineStatusUpdate = _handleUserOnlineStatusUpdate;
   }
 
@@ -65,8 +64,12 @@ class GetMessageCubit extends Cubit<GetMessageState> {
   bool hasReachedMax = false;
 
   Future<void> getMessages() async {
-    print("get messagesss");
-    print(hasReachedMax);
+    if (kDebugMode) {
+      print("get messagesss");
+    }
+    if (kDebugMode) {
+      print(hasReachedMax);
+    }
     if (hasReachedMax) return;
 
     if (state is! GetMessageLoading && state is! GetMessageLoaded) {
@@ -74,8 +77,9 @@ class GetMessageCubit extends Cubit<GetMessageState> {
     }
 
     try {
+      final savedId = _hiveService.getUserId();
       final result =
-          await _messageUsecases.getMessages(userId1: userId, page: _page);
+          await _messageUsecases.getMessages(userId1: savedId!, page: _page);
 
       result.fold(
         (error) => emit(GetMessageError(message: error.message)),
@@ -90,7 +94,9 @@ class GetMessageCubit extends Cubit<GetMessageState> {
           if ((success.messages?.length ?? 0) < 10) {
             hasReachedMax = true;
           }
-          print('mesages list ${success.messages?.length}');
+          if (kDebugMode) {
+            print('mesages list ${success.messages?.length}');
+          }
           emit(GetMessageLoaded(generalMessages: List.of(_messageList)));
         },
       );
@@ -106,9 +112,9 @@ class GetMessageCubit extends Cubit<GetMessageState> {
 
     isTopLoading = true;
     try {
-      final savedId = await _hiveService.getUserId();
+      final savedId = _hiveService.getUserId();
       if (savedId == null) {
-        emit(GetMessageError(message: 'User ID is null'));
+        emit(const GetMessageError(message: 'User ID is null'));
         return;
       }
       final result =
@@ -164,7 +170,9 @@ class GetMessageCubit extends Cubit<GetMessageState> {
         status: state.status,
       ));
     } catch (e) {
-      print("Error adding/updating messages: $e");
+      if (kDebugMode) {
+        print("Error adding/updating messages: $e");
+      }
       emit(GetMessageError(message: e.toString()));
     }
   }
@@ -274,13 +282,26 @@ class GetMessageCubit extends Cubit<GetMessageState> {
     }
   }
 
-  void updateMessageStatus(MessageEntity updatedMessage) {
-    final index = _messageList.indexWhere((msg) => msg.id == updatedMessage.id);
-    if (index != -1) {
-      _messageList[index] = updatedMessage;
-      emit(GetMessageLoaded(
-          conversationMessages: state.conversationMessages,
-          generalMessages: List.from(_messageList)));
+  void updateMessageStatus(String messageId, int newStatus) {
+    final updatedGeneralMessages = state.generalMessages.map((message) {
+      if (message.sender!.id == messageId) {
+        if (kDebugMode) {
+          print(
+              'Updating message in generalMessages with ID: $messageId to status: $newStatus');
+        }
+        return message.copyWith(status: newStatus);
+      }
+      return message;
+    }).toList();
+
+    emit(GetMessageLoaded(
+      generalMessages: updatedGeneralMessages,
+      onlineStatuses: state.onlineStatuses,
+      status: newStatus,
+    ));
+
+    if (kDebugMode) {
+      print("Emitting new state with updated messages in both lists");
     }
   }
 
@@ -289,16 +310,22 @@ class GetMessageCubit extends Cubit<GetMessageState> {
       final userId = data['userId'] as String;
       final isOnline = data['online'] as bool;
 
-      print('User online status updated: $userId, isOnline: $isOnline');
+      if (kDebugMode) {
+        print('User online status updated: $userId, isOnline: $isOnline');
+      }
 
       if (state is GetMessageLoaded) {
-        print('Current state is GetMessageLoaded');
+        if (kDebugMode) {
+          print('Current state is GetMessageLoaded');
+        }
         final currentState = state as GetMessageLoaded;
         final updatedOnlineStatuses =
             Map<String, bool>.from(currentState.onlineStatuses);
         updatedOnlineStatuses[userId] = isOnline;
 
-        print('Updated online statuses: $updatedOnlineStatuses');
+        if (kDebugMode) {
+          print('Updated online statuses: $updatedOnlineStatuses');
+        }
 
         final updatedMessages = List<MessageEntity>.from(_messageList);
 
@@ -331,98 +358,6 @@ class GetMessageCubit extends Cubit<GetMessageState> {
           generalMessages: List.from(_messageList),
           onlineStatuses: {userId: isOnline},
         ));
-      }
-    }
-  }
-
-  void updateMessageStatuss(dynamic data) {
-    if (data is List<dynamic>) {
-      for (var update in data) {
-        if (update is Map<String, dynamic>) {
-          _updateMessageStatus(update);
-        } else {
-          print('Unexpected data type in update list: $update');
-        }
-      }
-    } else if (data is Map<String, dynamic>) {
-      _updateMessageStatus(data);
-    } else {
-      print('Unexpected data type received for updateMessageStatuss: $data');
-    }
-  }
-
-  void _updateMessageStatus(Map<String, dynamic> update) {
-    final messageId = update['id'] as String?;
-    final status = update['status'] as int?;
-    print('General Messages Before Update: ${state}');
-
-    if (messageId != null && status != null) {
-      final currentState = state;
-      print('General Messages Before Update: ${currentState.generalMessages}');
-      final updatedStatuses = Map<String, int>.from(currentState.status);
-      updatedStatuses[messageId] = status;
-
-      //final updatedMessages = List<MessageEntity>.from(_messageList);
-      final updatedMessages = currentState.generalMessages.map((message) {
-        if (message.sender?.id == messageId) {
-          return MessageEntity(
-            id: message.id,
-            sender: message.sender,
-            receiver: message.receiver,
-            status: status,
-            online: message.online,
-          );
-        }
-        return message;
-      }).toList();
-
-      print('whereee $updatedMessages');
-      emit(GetConversationLoaded(
-        generalMessages: updatedMessages,
-        conversationMessages: currentState.conversationMessages,
-        status: updatedStatuses,
-      ));
-    }
-  }
-
-  void _status(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      final messageId = data['id'] as String;
-      final status = data['status'] as int;
-
-      print('User status updated: $messageId, status: $status');
-
-      if (state is GetMessageLoaded) {
-        print('Current state is GetMessageLoaded');
-        final currentState = state as GetMessageLoaded;
-
-        final updatedStatuses = Map<String, int>.from(currentState.status);
-        updatedStatuses[messageId] = status;
-
-        final updatedMessages =
-            List<MessageEntity>.from(currentState.generalMessages);
-        final index = updatedMessages.indexWhere((msg) => msg.id == messageId);
-
-        if (index != -1) {
-          final messageToUpdate = updatedMessages[index];
-
-          final updatedMessage = messageToUpdate.copyWith(
-            status: status,
-          );
-
-          updatedMessages[index] = updatedMessage;
-
-          emit(GetMessageLoaded(
-            conversationMessages: state.conversationMessages,
-            generalMessages: updatedMessages,
-            onlineStatuses: currentState.onlineStatuses,
-            status: updatedStatuses,
-          ));
-        } else {
-          print('Message with ID $messageId not found in the message list');
-        }
-      } else {
-        print('Current state is not GetMessageLoaded');
       }
     }
   }

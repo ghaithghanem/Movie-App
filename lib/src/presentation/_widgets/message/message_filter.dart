@@ -46,28 +46,28 @@ class _MessageFilterState extends State<MessageFilter> {
   @override
   Widget build(BuildContext context) {
     return Container(
-        width: MediaQuery.of(context).size.width - 60 ,
-        child:Card(
+      width: MediaQuery.of(context).size.width - 60,
+      child: Card(
         margin: EdgeInsets.only(right: 2, bottom: 15, top: 10),
-    shape:RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(25),
-    ),
-          child : TextField(
-            textAlignVertical: TextAlignVertical.center ,
-      controller: _controller,
-      decoration: InputDecoration(
-        prefixIcon: Icon(Icons.search),
-        hintText: 'Search...',
-        border: InputBorder.none,
-        // Remove the border here
-        focusedBorder: InputBorder.none,
-        // Also remove the border when the TextField is focused
-        enabledBorder: InputBorder.none,
-        // Remove the border when the TextField is enabled
-        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: TextField(
+          textAlignVertical: TextAlignVertical.center,
+          controller: _controller,
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search...',
+            border: InputBorder.none,
+            // Remove the border here
+            focusedBorder: InputBorder.none,
+            // Also remove the border when the TextField is focused
+            enabledBorder: InputBorder.none,
+            // Remove the border when the TextField is enabled
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
       ),
-    ),
-    ),
     );
   }
 }

@@ -4,12 +4,12 @@ sealed class GetMessageState extends Equatable {
   final List<MessageEntity> generalMessages;
   final List<MessageEntity> conversationMessages;
   final Map<String, bool> onlineStatuses;
-  final Map<String, int> status;
+  final int status;
   const GetMessageState(
       {this.generalMessages = const [],
       this.conversationMessages = const [],
       this.onlineStatuses = const {},
-      this.status = const {}});
+      this.status = 1});
 
   @override
   List<Object> get props =>
@@ -32,7 +32,7 @@ class GetMessageLoaded extends GetMessageState {
     List<MessageEntity> generalMessages = const [],
     List<MessageEntity> conversationMessages = const [],
     Map<String, bool> onlineStatuses = const {},
-    Map<String, int> status = const {},
+    int status = 0,
   }) : super(
             conversationMessages: conversationMessages,
             generalMessages: generalMessages,
@@ -63,7 +63,7 @@ final class GetConversationLoaded extends GetMessageState {
     List<MessageEntity> generalMessages = const [],
     List<MessageEntity> conversationMessages = const [],
     Map<String, bool> onlineStatuses = const {},
-    Map<String, int> status = const {},
+    int status = 0,
   }) : super(
           generalMessages: generalMessages,
           conversationMessages: conversationMessages,

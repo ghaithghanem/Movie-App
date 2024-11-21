@@ -1,46 +1,174 @@
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../cubit/message/conversations/chat_input/chat_input_bloc.dart';
 
 class MicAnimationWidget extends StatefulWidget {
-  final AnimationController animationController;
-  final Animation<double> micTranslateTop;
-  final Animation<double> micRotationFirst;
-  final Animation<double> micTranslateRight;
-  final Animation<double> micTranslateLeft;
-  final Animation<double> micRotationSecond;
-  final Animation<double> micTranslateDown;
-  final Animation<double> micInsideTrashTranslateDown;
-  final Animation<double> trashWithCoverTranslateTop;
-  final Animation<double> trashCoverRotationFirst;
-  final Animation<double> trashCoverTranslateLeft;
-  final Animation<double> trashCoverRotationSecond;
-  final Animation<double> trashCoverTranslateRight;
-  final Animation<double> trashWithCoverTranslateDown;
-
+  final ChatInputState state;
   const MicAnimationWidget({
-    Key? key,
-    required this.animationController,
-    required this.micTranslateTop,
-    required this.micRotationFirst,
-    required this.micTranslateRight,
-    required this.micTranslateLeft,
-    required this.micRotationSecond,
-    required this.micTranslateDown,
-    required this.micInsideTrashTranslateDown,
-    required this.trashWithCoverTranslateTop,
-    required this.trashCoverRotationFirst,
-    required this.trashCoverTranslateLeft,
-    required this.trashCoverRotationSecond,
-    required this.trashCoverTranslateRight,
-    required this.trashWithCoverTranslateDown,
-  }) : super(key: key);
+    super.key,
+    required this.state,
+  });
 
   @override
   _MicAnimationWidgetState createState() => _MicAnimationWidgetState();
 }
 
-class _MicAnimationWidgetState extends State<MicAnimationWidget> {
+class _MicAnimationWidgetState extends State<MicAnimationWidget>
+    with TickerProviderStateMixin {
+  late Animation<double> micTranslateTop;
+  late Animation<double> micRotationFirst;
+  late Animation<double> micTranslateRight;
+  late Animation<double> micTranslateLeft;
+  late Animation<double> micRotationSecond;
+  late Animation<double> micTranslateDown;
+  late Animation<double> micInsideTrashTranslateDown;
+  late Animation<double> trashWithCoverTranslateTop;
+  late Animation<double> trashCoverRotationFirst;
+  late Animation<double> trashCoverTranslateLeft;
+  late Animation<double> trashCoverRotationSecond;
+  late Animation<double> trashCoverTranslateRight;
+  late Animation<double> trashWithCoverTranslateDown;
+  AnimationController? _animationController;
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _animationController!.forward();
+    //Mic
+    // Add status listener to reset the animation after completion
+    _animationController!.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        context.read<ChatInputBloc>().add(ResetRecording());
+        _animationController!.reset(); // Reset animation
+        if (kDebugMode) {
+          print(
+              'check state of animation here   ${widget.state.cancelRecording}');
+        }
+      }
+    });
+
+    micTranslateTop = Tween(begin: 0.0, end: -150.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
+      ),
+    );
+
+    micTranslateRight = Tween(begin: 0.0, end: -150.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
+      ),
+    );
+
+    micRotationFirst = Tween(begin: 0.0, end: pi).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.0, 0.2),
+      ),
+    );
+
+    micTranslateRight = Tween(begin: 0.0, end: 15.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.0, 0.1),
+      ),
+    );
+
+    micTranslateLeft = Tween(begin: 0.0, end: -15.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.1, 0.2),
+      ),
+    );
+
+    micRotationSecond = Tween(begin: 0.0, end: pi).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.2, 0.45),
+      ),
+    );
+
+    micTranslateDown = Tween(begin: 0.0, end: 150.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.45, 0.79, curve: Curves.easeInOut),
+      ),
+    );
+
+    micInsideTrashTranslateDown = Tween(begin: 0.0, end: 55.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.95, 1.0, curve: Curves.easeInOut),
+      ),
+    );
+
+    trashWithCoverTranslateTop = Tween(begin: 30.0, end: -10.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.45, 0.6),
+      ),
+    );
+
+    trashCoverRotationFirst = Tween(begin: 0.0, end: -pi / 3).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.6, 0.7),
+      ),
+    );
+
+    trashCoverTranslateLeft = Tween(begin: 0.0, end: -18.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.6, 0.7),
+      ),
+    );
+
+    trashCoverRotationSecond = Tween(begin: 0.0, end: pi / 3).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.8, 0.9),
+      ),
+    );
+
+    trashCoverTranslateRight = Tween(begin: 0.0, end: 18.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.8, 0.9),
+      ),
+    );
+
+    trashWithCoverTranslateDown = Tween(begin: 0.0, end: 55.0).animate(
+      CurvedAnimation(
+        parent: _animationController!,
+        curve: const Interval(0.95, 1.0, curve: Curves.easeInOut),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<ChatInputBloc, ChatInputState>(
+      builder: (context, state) {
+        return animationUi(context, state);
+      },
+    );
+  }
+
+  Widget animationUi(BuildContext context, ChatInputState state) {
     return Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
@@ -49,66 +177,66 @@ class _MicAnimationWidgetState extends State<MicAnimationWidget> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             AnimatedBuilder(
-              animation: widget.animationController,
+              animation: _animationController!,
               builder: (context, child) {
                 return Transform(
                   transform: Matrix4.identity()
                     ..translate(0.0, 10)
-                    ..translate(widget.micTranslateRight.value)
-                    ..translate(widget.micTranslateLeft.value)
-                    ..translate(0.0, widget.micTranslateTop.value)
-                    ..translate(0.0, widget.micTranslateDown.value)
-                    ..translate(0.0, widget.micInsideTrashTranslateDown.value),
+                    ..translate(micTranslateRight.value)
+                    ..translate(micTranslateLeft.value)
+                    ..translate(0.0, micTranslateTop.value)
+                    ..translate(0.0, micTranslateDown.value)
+                    ..translate(0.0, micInsideTrashTranslateDown.value),
                   child: Transform.rotate(
-                    angle: widget.micRotationFirst.value,
+                    angle: micRotationFirst.value,
                     child: Transform.rotate(
-                      angle: widget.micRotationSecond.value,
+                      angle: micRotationSecond.value,
                       child: child,
                     ),
                   ),
                 );
               },
-              child: Icon(
+              child: const Icon(
                 Icons.mic,
                 color: Color(0xFFef5552),
                 size: 30,
               ),
             ),
             AnimatedBuilder(
-              animation: widget.trashWithCoverTranslateTop,
+              animation: trashWithCoverTranslateTop,
               builder: (context, child) {
                 return Transform(
                   transform: Matrix4.identity()
-                    ..translate(0.0, widget.trashWithCoverTranslateTop.value)
-                    ..translate(0.0, widget.trashWithCoverTranslateDown.value),
+                    ..translate(0.0, trashWithCoverTranslateTop.value)
+                    ..translate(0.0, trashWithCoverTranslateDown.value),
                   child: child,
                 );
               },
               child: Column(
                 children: [
                   AnimatedBuilder(
-                    animation: widget.trashCoverRotationFirst,
+                    animation: trashCoverRotationFirst,
                     builder: (context, child) {
                       return Transform(
                         transform: Matrix4.identity()
-                          ..translate(widget.trashCoverTranslateLeft.value)
-                          ..translate(widget.trashCoverTranslateRight.value),
+                          ..translate(trashCoverTranslateLeft.value)
+                          ..translate(trashCoverTranslateRight.value),
                         child: Transform.rotate(
-                          angle: widget.trashCoverRotationSecond.value,
+                          angle: trashCoverRotationSecond.value,
                           child: Transform.rotate(
-                            angle: widget.trashCoverRotationFirst.value,
+                            angle: trashCoverRotationFirst.value,
                             child: child,
                           ),
                         ),
                       );
                     },
-                    child: Image(
+                    child: const Image(
                       image: AssetImage('assets/images/trash_cover.png'),
                       width: 30,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1.5),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1.5),
                     child: Image(
                       image: AssetImage('assets/images/trash_container.png'),
                       width: 30,

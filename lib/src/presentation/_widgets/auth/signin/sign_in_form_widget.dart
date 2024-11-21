@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get_it/get_it.dart';
 import 'package:movie_app/src/presentation/_widgets/auth/text_field_widget.dart';
-import '../../../../../main.dart';
+
 import '../../../../config/router/app_router.gr.dart';
 import '../../../../core/database/hive.dart';
 import '../../../../core/theme/colors/my_colors.dart';
@@ -13,7 +13,7 @@ import '../../../cubit/auth/user_manager/auth_cubit.dart';
 import '../button_widget.dart';
 
 final RegExp emailValidatorRegExp =
-RegExp(r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
+    RegExp(r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
 const String kEmailNullError = "Please Enter your email";
 const String kInvalidEmailError = "Please Enter Valid Email";
 const String kPassNullError = "Please Enter your password";
@@ -22,7 +22,6 @@ const String kMatchPassError = "Passwords don't match";
 const String kNamelNullError = "Please Enter your name";
 const String kPhoneNumberNullError = "Please Enter your phone number";
 const String kAddressNullError = "Please Enter your address";
-
 
 class SignInForm extends StatefulWidget {
   const SignInForm({super.key});
@@ -89,14 +88,14 @@ class _SignInFormState extends State<SignInForm> {
               // Save the "Remember Me" preference
               if (remember) {
                 _saveUserCredentials();
-
               }
               context.router.replace(MasterRoute());
             }
             if (state is LoginError) {
               _showSnackBar(context, state);
             }
-          }, child: BlocBuilder<LoginCubit, LoginState>(builder: (context, state) {
+          }, child:
+              BlocBuilder<LoginCubit, LoginState>(builder: (context, state) {
             return ButtonWidget(
               text: "Sign In",
               isLoading: state is LoginLoading ? true : false,
@@ -114,10 +113,12 @@ class _SignInFormState extends State<SignInForm> {
   }
 
   void _saveUserCredentials() {
-      //final hiveService = context.read<HiveService>();
+    //final hiveService = context.read<HiveService>();
     final hiveService = GetIt.instance<HiveService>();
     hiveService.saveRememberMe(remember);
-      //_hiveService.saveRememberMe(remember);
+    //_hiveService.saveRememberMe(remember);
+
+    context.read<AuthCubit>().checkAuthStatus();
   }
 
   void _clearUserCredentials() {
@@ -132,11 +133,8 @@ class _SignInFormState extends State<SignInForm> {
   }
 
   void _onContinuePressed(BuildContext context) {
-    BlocProvider.of<LoginCubit>(context).login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-      remember
-    );
+    BlocProvider.of<LoginCubit>(context).login(_emailController.text.trim(),
+        _passwordController.text.trim(), remember);
   }
 
   void _onForgotPasswordPressed(BuildContext context) {
@@ -197,4 +195,3 @@ class _SignInFormState extends State<SignInForm> {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:camera/camera.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,6 +24,7 @@ import 'package:movie_app/src/domain/usecases/export_usecases.dart';
 import 'package:movie_app/src/presentation/cubit/auth/export_auth_cubits.dart';
 import 'package:movie_app/src/presentation/cubit/auth/user_manager/auth_cubit.dart';
 import 'package:movie_app/src/presentation/cubit/image_picker/export_image_picker_cubits.dart';
+import 'package:movie_app/src/presentation/cubit/message/conversations/chat_input/chat_input_bloc.dart';
 import 'package:movie_app/src/presentation/cubit/message/conversations/conversations_bloc.dart';
 import 'package:movie_app/src/presentation/cubit/message/get_message/get_message_cubit.dart';
 import 'package:movie_app/src/presentation/cubit/movie/export_movie_cubits.dart';
@@ -39,13 +41,20 @@ part './src/injector.dart';
 
 final router = AppRouter();
 late final HiveService hiveService;
-
+late List<CameraDescription> cameras;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
-
+  cameras = await availableCameras();
   await Hive.initFlutter();
   await Hive.openBox('authBox');
+
+  try {
+    cameras = await availableCameras();
+  } catch (e) {
+    cameras = []; // Handle the error by initializing an empty list
+    debugPrint("Error initializing cameras: $e");
+  }
 
   final storage = await HydratedStorage.build(
     storageDirectory: await getApplicationDocumentsDirectory(),
@@ -67,13 +76,14 @@ void main() async {
     dioClient: dioClient, // Pass the DioClient instance here
     hiveService: hiveService,
   ).initNotifications();
-  runApp(MyApp(userId: userId ?? ''));
+
+  runApp(MyApp(userId: userId ?? '', cameras: cameras));
 }
 
 class MyApp extends StatelessWidget {
   final String userId;
-
-  const MyApp({super.key, required this.userId});
+  final List<CameraDescription> cameras;
+  const MyApp({super.key, required this.userId, required this.cameras});
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +96,14 @@ class MyApp extends StatelessWidget {
         BlocProvider<ThemeCubit>(create: (context) => injector<ThemeCubit>()),
         BlocProvider<LoginCubit>(create: (context) => injector<LoginCubit>()),
         BlocProvider<AuthCubit>(create: (context) => injector<AuthCubit>()),
+        BlocProvider<ChatInputBloc>(
+          create: (context) => ChatInputBloc(
+            injector<GetMessageCubit>(
+              param1: Tuple3(
+                  userId, injector<HiveService>(), injector<SocketService>()),
+            ),
+          ),
+        ),
         BlocProvider<GetMessageCubit>(
           create: (context) => injector<GetMessageCubit>(
             param1: Tuple3(

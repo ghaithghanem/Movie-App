@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/database/hive.dart';
@@ -11,13 +12,18 @@ part 'conversations_event.dart';
 part 'conversations_state.dart';
 
 class ConversationsBloc extends Bloc<ConversationsEvent, ConversationsState> {
-  final List<MessageEntity> _messageList = [];
+  List<MessageEntity> _messageList = [];
   final SocketService _socketService;
   final MessageUsecases _messageUsecases;
   final String? userId;
+
+  String? currentSenderId;
+  String? currentReceiverId;
   final HiveService _hiveService;
   int _page = 0;
   bool hasReachedMax = false;
+  double _previousScrollPosition = 0.0;
+  bool _isActiveConversation = false;
   ConversationsBloc(this._messageUsecases, this.userId, this._hiveService,
       this._socketService)
       : super(ConversationsInitial()) {
@@ -25,7 +31,15 @@ class ConversationsBloc extends Bloc<ConversationsEvent, ConversationsState> {
     on<LoadNextPageEvent>(_loadNextPage);
     on<SendMessageEvent>(_onSendMessage);
     on<AddNewMessageEvent>(_onAddNewMessage);
+    on<ResetConversationEvent>(_resetConversation);
+    on<ActivateConversationEvent>(_onActivateConversation);
+    on<DeactivateConversationEvent>(_onDeactivateConversation);
+    // Listen for socket message status updates
+    _socketService.statusUpdate = (data) {
+      add(MessageStatusUpdatedEvent(data['messageId'], data['status']));
+    };
 
+    on<MessageStatusUpdatedEvent>(_onMessageStatusUpdated);
     on<ConversationsEvent>((event, emit) {
       // TODO: implement event handler
     });
@@ -36,20 +50,44 @@ class ConversationsBloc extends Bloc<ConversationsEvent, ConversationsState> {
     scrollController.jumpTo(position);
   }
 
+  void _resetConversation(
+      ResetConversationEvent event, Emitter<ConversationsState> emit) {
+    _messageList.clear();
+    _page = 1;
+    hasReachedMax = false;
+    emit(ConversationsInitial());
+  }
+
   void resetPagination() {
     _messageList.clear();
     _page = 1;
     hasReachedMax = false;
   }
 
+  void _saveScrollPosition(ScrollController controller) {
+    _previousScrollPosition = controller.position.pixels;
+  }
+
+  final double _estimatedItemHeight =
+      70.0; // Adjust based on the actual item height in your UI
+
+  void _restoreScrollPosition(ScrollController controller, int newItemsCount) {
+    // Calculate the offset by multiplying the height of each item by the count of newly loaded items
+    final offset = newItemsCount * _estimatedItemHeight;
+    controller.jumpTo(_previousScrollPosition + offset);
+  }
+
   Future<void> _loadInitialConversation(
       LoadConversationEvent event, Emitter<ConversationsState> emit) async {
-    resetPagination();
-    emit(GetConversationsLoading());
+    if (hasReachedMax) return;
 
-    final savedId = await _hiveService.getUserId();
+    if (state is! GetConversationsLoading && state is! GetConversationsLoaded) {
+      emit(GetConversationsLoading(state));
+    }
+
+    final savedId = _hiveService.getUserId();
     if (savedId == null) {
-      emit(MessageError(message: 'User ID is null'));
+      emit(const MessageError(message: 'User ID is null'));
       return;
     }
 
@@ -60,20 +98,19 @@ class ConversationsBloc extends Bloc<ConversationsEvent, ConversationsState> {
       result.fold(
         (error) => emit(MessageError(message: error.message)),
         (conversationList) {
-          // Increment the page number for pagination
           _page++;
-
-          // Add the first page of messages
-          _messageList.addAll(conversationList.conversation ?? []);
-
-          // If less than a full page is fetched, we've reached the end
+          _messageList = List.from(_messageList)
+            ..addAll(conversationList.conversation ?? []);
           if ((conversationList.conversation?.length ?? 0) < 10) {
             hasReachedMax = true;
           }
 
-          emit(GetConversationsLoaded(
-            conversationMessages: List.from(_messageList),
-          ));
+          // Only mark messages as read if conversation is active
+          if (_isActiveConversation) {
+            _markUnreadMessagesAsRead(conversationList.conversation ?? []);
+          }
+
+          emit(GetConversationsLoaded(conversationMessages: _messageList));
         },
       );
     } catch (e) {
@@ -82,89 +119,70 @@ class ConversationsBloc extends Bloc<ConversationsEvent, ConversationsState> {
   }
 
   Future<void> _loadNextPage(
-      LoadNextPageEvent event, Emitter<ConversationsState> emit) async {
-    if (hasReachedMax) return;
+    LoadNextPageEvent event,
+    Emitter<ConversationsState> emit,
+  ) async {
+    // Return if reached the max number of messages or no scroll controller is attached
+    if (hasReachedMax || !event.scrollController.hasClients) return;
 
-    emit(GetConversationsLoading());
+    // Save the current scroll position before loading more
+    _saveScrollPosition(event.scrollController);
+
+    // Emit loading state for more messages (while retaining previous messages)
+    if (state is GetConversationsLoaded) {
+      emit(LoadingMoreMessages(
+        conversationMessages:
+            (state as GetConversationsLoaded).conversationMessages,
+      ));
+    } else {
+      emit(LoadingMoreMessages(
+        conversationMessages: _messageList,
+      ));
+    }
 
     try {
+      // Fetch the next page of conversations
       final result = await _messageUsecases.getConversation(
-          userId1: event.userId1, userId2: event.userId2, page: _page);
+        userId1: event.userId1,
+        userId2: event.userId2,
+        page: _page, // Incremented page number for pagination
+      );
 
       result.fold(
         (error) => emit(MessageError(message: error.message)),
         (conversationList) {
-          // Increment the page number for pagination
+          final newMessagesCount = conversationList.conversation?.length ?? 0;
+
+          // Increment page for the next load
           _page++;
 
-          // Add the next page of messages
-          _messageList.addAll(conversationList.conversation ?? []);
-
-          // If less than a full page is fetched, we've reached the end
-          if ((conversationList.conversation?.length ?? 0) < 10) {
+          // Check if we've reached the max number of messages
+          if (newMessagesCount < 10) {
             hasReachedMax = true;
           }
 
-          emit(GetConversationsLoaded(
-            conversationMessages: List.from(_messageList),
-          ));
+          // Append the new messages to the existing list
+          if (state is GetConversationsLoaded) {
+            final currentMessages =
+                (state as GetConversationsLoaded).conversationMessages;
+
+            // Use the copyWithNewMessages method to add new messages without overriding the state
+            emit((state as GetConversationsLoaded).copyWithNewMessages(
+              conversationList.conversation ?? [],
+            ));
+          } else {
+            _messageList.addAll(conversationList.conversation ?? []);
+            emit(GetConversationsLoaded(conversationMessages: _messageList));
+          }
+
+          // Restore the scroll position after loading new messages
+          if (event.scrollController.hasClients) {
+            _restoreScrollPosition(event.scrollController, newMessagesCount);
+          }
         },
       );
     } catch (e) {
       emit(MessageError(message: 'An unexpected error occurred: $e'));
-    }
-  }
-
-  Future<void> _onLoadConversation(
-      LoadConversationEvent event, Emitter<ConversationsState> emit) async {
-    _messageList.clear();
-    hasReachedMax = false;
-    emit(GetConversationsLoading());
-
-    final savedId = await _hiveService.getUserId();
-    if (savedId == null) {
-      emit(MessageError(message: 'User ID is null'));
-      return;
-    }
-
-    try {
-      // Fetch the first page of the conversation
-      final result = await _messageUsecases.getConversation(
-          userId1: event.userId1, userId2: event.userId2, page: _page);
-
-      result.fold(
-        (error) => emit(MessageError(message: error.message)),
-        (conversationList) {
-          // Increment the page number for future fetches (pagination)
-          _page++;
-
-          // Add new messages to the list (but avoid duplicates)
-          _messageList.addAll(conversationList.conversation
-                  ?.where((message) => !_messageList.contains(message)) ??
-              []);
-
-          // If we get less than a full page of messages, mark that we've reached the end
-          if ((conversationList.conversation?.length ?? 0) < 10) {
-            hasReachedMax = true;
-          }
-
-          // Emit messageOpened event for the appropriate messages
-          for (var message in conversationList.conversation ?? []) {
-            if (message.sender!.id == savedId) {
-              print('Message ID: ${message.id}, isSender: ${message.isSender}');
-            } else {
-              _socketService.messageOpened(message.id!);
-            }
-          }
-
-          // Emit the loaded state with the updated list of messages
-          emit(GetConversationsLoaded(
-            conversationMessages: List.from(_messageList),
-          ));
-        },
-      );
-    } catch (e) {
-      emit(MessageError(message: 'An unexpected error occurred $e'));
     }
   }
 
@@ -186,19 +204,99 @@ class ConversationsBloc extends Bloc<ConversationsEvent, ConversationsState> {
     }
   }
 
+  void _onActivateConversation(
+      ActivateConversationEvent event, Emitter<ConversationsState> emit) {
+    _isActiveConversation = true;
+    // Mark existing unread messages as read
+    if (state is GetConversationsLoaded) {
+      final messages = (state as GetConversationsLoaded).conversationMessages;
+      _markUnreadMessagesAsRead(messages);
+    }
+  }
+
+  void _onDeactivateConversation(
+      DeactivateConversationEvent event, Emitter<ConversationsState> emit) {
+    _isActiveConversation = false;
+  }
+
+  void _markUnreadMessagesAsRead(List<MessageEntity> messages) {
+    if (!_isActiveConversation) return; // Exit if conversation is not active
+
+    for (var message in messages) {
+      if (message.receiver?.id == userId &&
+          message.status != 'read' &&
+          isCurrentConversation(
+              message.sender?.id ?? '', message.receiver?.id ?? '')) {
+        _socketService.messageOpened(message.id!);
+      }
+    }
+  }
+
   Future<void> _onAddNewMessage(
     AddNewMessageEvent event,
     Emitter<ConversationsState> emit,
   ) async {
     try {
-      _messageList.insert(0, event.newMessage);
+      final newMessage = event.newMessage;
+
+      // Check if the message belongs to the current conversation
+      if (isCurrentConversation(
+          newMessage.sender?.id ?? '', newMessage.receiver?.id ?? '')) {
+        // Emit `messageOpened` for the new message only if the conversation is active
+        if (_isActiveConversation && newMessage.receiver?.id == userId) {
+          _socketService.messageOpened(newMessage.id!);
+          print('New message status updated for message ID: ${newMessage.id}');
+        }
+      }
+
+      // Add the new message to the top of the list
+      final updatedMessages = List<MessageEntity>.from(_messageList)
+        ..insert(0, newMessage);
+
+      _messageList = updatedMessages;
+
+      // Emit updated state
       emit(GetConversationsLoaded(
-        conversationMessages: List<MessageEntity>.from(_messageList),
+        conversationMessages: List.from(updatedMessages),
       ));
     } catch (e) {
       print("Error adding/updating messages: $e");
       emit(MessageError(message: e.toString()));
     }
+  }
+
+  void setCurrentConversation(String senderId, String receiverId) {
+    currentSenderId = senderId;
+    if (kDebugMode) {
+      print("compere idsss 1 ${senderId == currentReceiverId}");
+    }
+    currentReceiverId = receiverId;
+  }
+
+  bool isCurrentConversation(String senderId, String receiverId) {
+    if (kDebugMode) {
+      print("compere idsss gh ${senderId == currentReceiverId}");
+    }
+    if (kDebugMode) {
+      print("id verif $currentSenderId $currentReceiverId");
+    }
+    return (senderId == currentSenderId && receiverId == currentReceiverId) ||
+        (senderId == currentReceiverId && receiverId == currentSenderId);
+  }
+
+  void _onMessageStatusUpdated(
+      MessageStatusUpdatedEvent event, Emitter<ConversationsState> emit) {
+    final updatedMessages = _messageList.map((message) {
+      if (message.id == event.messageId) {
+        return message.copyWith(status: event.newStatus);
+      }
+      return message;
+    }).toList();
+
+    _messageList.clear();
+    _messageList.addAll(updatedMessages);
+
+    emit(GetConversationsLoaded(conversationMessages: List.from(_messageList)));
   }
 }
 

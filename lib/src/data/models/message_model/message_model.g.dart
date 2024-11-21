@@ -17,6 +17,7 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
       isSender: json['isSender'] as bool,
       status: (json['status'] as num?)?.toInt() ?? 0,
       online: json['online'] as bool,
+      voiceMessageId: json['voiceMessageId'] as String?,
     );
 
 Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
@@ -29,4 +30,5 @@ Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
       'isSender': instance.isSender,
       'status': instance.status,
       'online': instance.online,
+      'voiceMessageId': instance.voiceMessageId,
     };

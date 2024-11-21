@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:movie_app/src/core/network/socketservice.dart';
 
@@ -60,8 +61,8 @@ class MessageListFormWidget extends StatelessWidget {
                     clipBehavior: Clip.none,
                     children: [
                       Container(
-                        width: 55,
-                        height: 55,
+                        width: ScreenUtil().setWidth(55),
+                        height: ScreenUtil().setHeight(58),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           image: DecorationImage(
@@ -74,8 +75,8 @@ class MessageListFormWidget extends StatelessWidget {
                         bottom: 0,
                         right: 0,
                         child: Container(
-                          width: 15,
-                          height: 15,
+                          width: ScreenUtil().setWidth(16),
+                          height: ScreenUtil().setHeight(16),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: online ? Colors.green : Colors.grey,
@@ -87,15 +88,15 @@ class MessageListFormWidget extends StatelessWidget {
                   )
                 else
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: ScreenUtil().setWidth(50),
+                    height: ScreenUtil().setHeight(50),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.grey,
                     ),
                     child: const Icon(Icons.person, color: Colors.white),
                   ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(10),
@@ -115,33 +116,69 @@ class MessageListFormWidget extends StatelessWidget {
                                     fontWeight: FontWeight.bold,
                                   ),
                         ),
-                        const SizedBox(height: 5),
+                        SizedBox(height: 5.h),
                         Row(
                           children: [
                             if (isSender)
                               Expanded(
                                 child: Row(
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        'You: ${message?.message ?? ''}',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              color: isSender || status == 2
-                                                  ? Colors.grey
-                                                  : Colors.black,
-                                              fontWeight:
-                                                  isSender || status == 2
-                                                      ? FontWeight.normal
-                                                      : FontWeight.bold,
+                                    if (message?.message != null &&
+                                        message!.message!.isNotEmpty)
+                                      Expanded(
+                                        child: Text(
+                                          'You: ${message?.message ?? ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: isSender || status == 2
+                                                    ? Colors.grey
+                                                    : Colors.black,
+                                                fontWeight:
+                                                    isSender || status == 2
+                                                        ? FontWeight.normal
+                                                        : FontWeight.bold,
+                                              ),
+                                        ),
+                                      )
+                                    else if (message?.message == "")
+                                      Expanded(
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'You: u sent a voice message',
+                                                overflow: TextOverflow.visible,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleMedium
+                                                    ?.copyWith(
+                                                      color: isSender ||
+                                                              status == 2
+                                                          ? Colors.grey
+                                                          : Colors.black,
+                                                      fontWeight: isSender ||
+                                                              status == 2
+                                                          ? FontWeight.normal
+                                                          : FontWeight.bold,
+                                                    ),
+                                              ),
                                             ),
+                                            SizedBox(width: 8.w),
+                                            Flexible(
+                                                child: Image.asset(
+                                              'assets/images/message-vocal.png',
+                                              width: 30,
+                                              height: 30,
+                                            )),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(width: 8),
+                                    SizedBox(width: 8.w),
                                     if (isSender && status == 2)
                                       Image.asset(
                                         'assets/images/vu.png',
@@ -157,7 +194,8 @@ class MessageListFormWidget extends StatelessWidget {
                                   ],
                                 ),
                               )
-                            else
+                            else if (message?.message != null &&
+                                message!.message!.isNotEmpty)
                               Expanded(
                                 child: Text(
                                   message?.message ?? '',
@@ -175,8 +213,40 @@ class MessageListFormWidget extends StatelessWidget {
                                             : FontWeight.bold,
                                       ),
                                 ),
+                              )
+                            else if (message?.message == "")
+                              Expanded(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'u have a voice message ',
+                                        overflow: TextOverflow.visible,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              color: isSender || status == 2
+                                                  ? Colors.black
+                                                  : Colors.grey,
+                                              fontWeight:
+                                                  isSender || status == 2
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                            ),
+                                      ),
+                                    ),
+                                    Flexible(
+                                        child: Image.asset(
+                                      'assets/images/message-vocal.png',
+                                      width: 30,
+                                      height: 30,
+                                    )),
+                                  ],
+                                ),
                               ),
-                            SizedBox(width: 10),
+                            SizedBox(width: 8.w),
                             Text(
                               message?.timestamp != null
                                   ? DateFormat('HH:mm')
@@ -200,7 +270,6 @@ class MessageListFormWidget extends StatelessWidget {
             ),
           );
         }
-
         return Container();
       },
     );

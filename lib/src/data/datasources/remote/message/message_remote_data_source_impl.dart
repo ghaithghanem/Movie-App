@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:movie_app/src/data/models/message_model/conversation_pagination_model.dart';
 import 'package:path/path.dart'; // For basename function
 
@@ -20,20 +21,19 @@ class MessageRemoteDataSourceImpl implements MessageRemoteDataSource {
   Future<MessagePaginationModel> getMessage(
       {required String userId1, required int page}) async {
     try {
-      // Retrieve savedId from HiveService
-      final savedId = await _hiveService.getUserId();
+      final savedId = _hiveService.getUserId();
+      if (kDebugMode) {
+        if (kDebugMode) {
+          print('id check late get it $savedId');
+        }
+      }
 
-      // Replace {user_id1} in the URL with the actual userId
       final url =
           replacePlaceholder(UrlConstants.getMessages, '{user_id1}', userId1);
 
-      // Use savedId in queryParameters
       final response = await _dioClient.get(
         url,
-        queryParameters: {
-          'userId': savedId,
-          'page': page // Use savedId here
-        },
+        queryParameters: {'userId': savedId, 'page': page},
       );
 
       final model = MessagePaginationModel.fromJson(
@@ -41,13 +41,13 @@ class MessageRemoteDataSourceImpl implements MessageRemoteDataSource {
 
       return model;
     } catch (e) {
-      // Log the error
-      print('Error in getMessage: $e');
+      if (kDebugMode) {
+        print('Error in getMessage: $e');
+      }
       rethrow;
     }
   }
 
-  // Utility function to replace placeholders in the URL
   String replacePlaceholder(
     String url,
     String placeholder,
@@ -116,7 +116,9 @@ class MessageRemoteDataSourceImpl implements MessageRemoteDataSource {
       // Parse and return the response data
       return MessageModel.fromJson(response.data);
     } catch (e) {
-      print('Error in sending message: $e');
+      if (kDebugMode) {
+        print('Error in sending message: $e');
+      }
       rethrow; // Re-throw the error after logging it
     }
   }

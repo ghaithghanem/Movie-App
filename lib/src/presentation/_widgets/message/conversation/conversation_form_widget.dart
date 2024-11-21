@@ -109,8 +109,10 @@ class _ConversationFormWidgetState extends State<ConversationFormWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isSender = widget.message.sender?.id == widget.currentUserId;
-
+    final hiveService = injector<HiveService>();
+    final savedId = hiveService.getUserId();
+    final isSender = widget.message.sender?.id == savedId;
+    print("test idddd ${savedId}");
     return ChatBubble(
       clipper: ChatBubbleClipper1(
         type: isSender ? BubbleType.sendBubble : BubbleType.receiverBubble,

@@ -1,5 +1,4 @@
 class PathConstants {
-
   static const String check_auth_route = '/';
   static const String signin = '/signin';
   static const String signup = '/signup';
@@ -7,6 +6,9 @@ class PathConstants {
   static const String createGroupe = '/create_groupe';
 
   static const String conversation = '/conversation_view';
+  static const String cameraScreen = '/cameraScreen_view';
+  static const String cameraViewPage = '/cameraViewPage_view';
+  static const String videoViewPage = '/videoViewPage_view';
   static const String master = '/master';
   static const String movies = 'movies';
   static const String bookmarks = 'bookmarks';

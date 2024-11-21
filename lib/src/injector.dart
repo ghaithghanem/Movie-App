@@ -18,6 +18,8 @@ Future<void> init() async {
     ..registerLazySingleton<LoginCubit>(() => LoginCubit(
           injector(),
         ))
+    ..registerLazySingleton<AuthCubit>(
+        () => AuthCubit(injector(), injector<HiveService>()))
     // Register GetMessageCubit with required parameters
     ..registerFactoryParam<GetMessageCubit,
         Tuple3<String, HiveService, SocketService>, void>(
@@ -36,8 +38,8 @@ Future<void> init() async {
               injector<SocketService>(),
               // Pass userId to the bloc constructor
             ))
-    ..registerLazySingleton<AuthCubit>(
-        () => AuthCubit(injector(), injector<HiveService>()))
+    ..registerFactory<ChatInputBloc>(
+        () => ChatInputBloc(injector<GetMessageCubit>()))
     ..registerLazySingleton<SignupCubit>(() => SignupCubit(injector()))
     ..registerLazySingleton<ImagePickerCubit>(() => ImagePickerCubit())
     ..registerLazySingleton<GetPopularMoviesCubit>(

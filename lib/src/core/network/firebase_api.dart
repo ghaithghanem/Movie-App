@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import '../constants/url_constants.dart';
 import '../database/hive.dart';
@@ -6,9 +7,15 @@ import 'dio_client.dart';
 
 late final HiveService _hiveService;
 Future<void> handleBackgroundMessage(RemoteMessage message) async {
-  print('Title: ${message.notification?.title}');
-  print('Body: ${message.notification?.body}');
-  print('Payload: ${message.data}');
+  if (kDebugMode) {
+    print('Title: ${message.notification?.title}');
+  }
+  if (kDebugMode) {
+    print('Body: ${message.notification?.body}');
+  }
+  if (kDebugMode) {
+    print('Payload: ${message.data}');
+  }
   //_onNavigatePressed(context);
   final targetRoute = message.data['route'];
   await _hiveService.saveAuthToken(targetRoute);
@@ -17,22 +24,33 @@ Future<void> handleBackgroundMessage(RemoteMessage message) async {
 class FirebaseApi {
   final _firebaseMessaging = FirebaseMessaging.instance;
   late final DioClient _dioClient;
-  late final HiveService _hiveService;
 
   FirebaseApi({
     required DioClient dioClient,
     required HiveService hiveService,
   }) {
     _dioClient = dioClient;
-    _hiveService = hiveService;
   }
   Future<void> initNotifications() async {
     await _firebaseMessaging.requestPermission();
-    final fCMToken = await _firebaseMessaging.getToken();
-    print('Token: $fCMToken');
+    // Attempt to get the token initially
+    await _trySaveFCMToken();
 
+    // Listen for token updates
+    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+      if (kDebugMode) {
+        print('New FCM Token: $newToken');
+      }
+      await _trySaveFCMToken(newToken);
+    });
     FirebaseMessaging.onBackgroundMessage(
         handleBackgroundMessage as BackgroundMessageHandler);
+  }
+
+  Future<void> _trySaveFCMToken([String? token]) async {
+    //String? fCMToken = token ?? await _firebaseMessaging.getToken();
+
+    //print('Token: $fCMToken');
   }
 
   Future<void> saveTokenToBackend(String userId, String fCMToken) async {
@@ -52,3 +70,17 @@ class FirebaseApi {
     }
   }
 }
+
+/*
+  Future<void> initNotifications() async {
+    await _firebaseMessaging.requestPermission();
+    final fCMToken = await _firebaseMessaging.getToken();
+    print('Token: $fCMToken');
+    if (fCMToken != null) {
+      final savedId = await _hiveService.getUserId();
+      await saveTokenToBackend(savedId!, fCMToken);
+    }
+    FirebaseMessaging.onBackgroundMessage(
+        handleBackgroundMessage as BackgroundMessageHandler);
+  }
+ */

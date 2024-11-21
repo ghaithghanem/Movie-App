@@ -35,30 +35,17 @@ class SocketService {
       }
     });
     socket.on('messageStatusesUpdated', (data) {
-      try {
-        print('Received messageStatusUpdate event: $data');
+      print('Received messageStatusesUpdated event: $data');
 
-        if (data is Map<String, dynamic>) {
-          final messageId = data['id'] as String?;
-          final status = data['status'] as int?;
+      // Parse the messageId and status from the data
+      final messageId = data['id'] as String;
+      final status = data['status'] ?? 0; // Ensure status is an int
 
-          if (messageId != null && status != null) {
-            print('Message status updated: $messageId, status: $status');
-            _status[messageId] = status;
-            if (statusUpdate != null) {
-              statusUpdate!(data);
-            }
-          } else {
-            print(
-                'Data is missing required fields. MessageId: $messageId, Status: $status');
-          }
-        } else {
-          print(
-              'Expected data to be a map with id and status. Received: $data');
-        }
-      } catch (e) {
-        print('Error handling messageStatusesUpdated event: $e');
-      }
+      print('Received messageStatusesUpdated event 1: $status $messageId');
+
+      // Notify cubit/bloc of the status update
+      final getMessageCubit = context.read<GetMessageCubit>();
+      getMessageCubit.updateMessageStatus(messageId, status);
     });
 
     socket.on('disconnect', (_) {
@@ -80,10 +67,23 @@ class SocketService {
 
     socket.on('newMessage', (data) async {
       print('Received newMessage event: $data');
-      final getMessageCubit = context.read<GetMessageCubit>();
+
       final newMessage = MessageModel.fromJson(data).toEntity();
-      context.read<ConversationsBloc>().add(AddNewMessageEvent(newMessage));
+
+      // Update the messages in the Cubit
+      final getMessageCubit = context.read<GetMessageCubit>();
       await getMessageCubit.addNewMessagesAndUpdateBothLists(newMessage);
+
+      // Compare with the current conversation in the Bloc
+      final conversationsBloc = context.read<ConversationsBloc>();
+      if (conversationsBloc.isCurrentConversation(
+          newMessage.sender?.id ?? '', newMessage.receiver?.id ?? '')) {
+        // Add the new message to the conversation if it's part of the current conversation
+        conversationsBloc.add(AddNewMessageEvent(newMessage));
+      }
+
+      print(
+          "Verifying IDs in socket: senderId: ${newMessage.sender?.id ?? ''}");
     });
 
     socket.on('messageAcknowledgment', (data) {

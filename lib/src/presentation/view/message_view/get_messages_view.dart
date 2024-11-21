@@ -17,6 +17,7 @@ import '../../_widgets/message/message_filter.dart';
 import '../../_widgets/message/message_list_form_widget.dart';
 import '../../_widgets/message/msg_floatingButton_widget.dart';
 import '../../_widgets/shimmer/shimmer_loader.dart';
+import '../../cubit/auth/user_manager/auth_cubit.dart';
 import '../../cubit/message/get_message/get_message_cubit.dart';
 
 part '../../_widgets/message/message_widget.dart';
@@ -46,6 +47,7 @@ class GetMessagesView extends HookWidget {
         print("init getmessages");
 
         try {
+          context.read<AuthCubit>().checkAuthStatus();
           final userId = await _getUserId(hiveService);
           final currentState = context.read<GetMessageCubit>().state;
           print("state $currentState ");

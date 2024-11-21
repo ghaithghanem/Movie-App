@@ -12,6 +12,13 @@ import 'package:flutter/widgets.dart';
 class $AssetsImagesGen {
   const $AssetsImagesGen();
 
+  /// File path: assets/images/backgroundMSG.png
+  AssetGenImage get backgroundMSG =>
+      const AssetGenImage('assets/images/backgroundMSG.png');
+
+  /// File path: assets/images/backmg.png
+  AssetGenImage get backmg => const AssetGenImage('assets/images/backmg.png');
+
   /// File path: assets/images/groups.svg
   String get groups => 'assets/images/groups.svg';
 
@@ -23,6 +30,10 @@ class $AssetsImagesGen {
   AssetGenImage get logoMovieEdit12 =>
       const AssetGenImage('assets/images/logo_movie_edit12.png');
 
+  /// File path: assets/images/message-vocal.png
+  AssetGenImage get messageVocal =>
+      const AssetGenImage('assets/images/message-vocal.png');
+
   /// File path: assets/images/movie_app_logo_android12.png
   AssetGenImage get movieAppLogoAndroid12 =>
       const AssetGenImage('assets/images/movie_app_logo_android12.png');
@@ -33,17 +44,35 @@ class $AssetsImagesGen {
   /// File path: assets/images/person.svg
   String get person => 'assets/images/person.svg';
 
+  /// File path: assets/images/space_backG.jpg
+  AssetGenImage get spaceBackG =>
+      const AssetGenImage('assets/images/space_backG.jpg');
+
+  /// File path: assets/images/trash_container.png
+  AssetGenImage get trashContainer =>
+      const AssetGenImage('assets/images/trash_container.png');
+
+  /// File path: assets/images/trash_cover.png
+  AssetGenImage get trashCover =>
+      const AssetGenImage('assets/images/trash_cover.png');
+
   /// File path: assets/images/vu.png
   AssetGenImage get vu => const AssetGenImage('assets/images/vu.png');
 
   /// List of all assets
   List<dynamic> get values => [
+        backgroundMSG,
+        backmg,
         groups,
         logoMovieApp,
         logoMovieEdit12,
+        messageVocal,
         movieAppLogoAndroid12,
         notvu,
         person,
+        spaceBackG,
+        trashContainer,
+        trashCover,
         vu
       ];
 }

@@ -21,6 +21,8 @@ class ToggleRecording extends ChatInputEvent {}
 
 class CancelRecording extends ChatInputEvent {}
 
+class ResetRecording extends ChatInputEvent {}
+
 class DragUpdateEvent extends ChatInputEvent {
   final double dragOffset;
 
@@ -33,12 +35,17 @@ class DragUpdateEvent extends ChatInputEvent {
 class StartRecording extends ChatInputEvent {}
 
 class StopRecording extends ChatInputEvent {
+  final String receiverId;
+  final String senderId;
   final String? voiceMessagePath;
 
-  const StopRecording(this.voiceMessagePath);
+  const StopRecording(
+      {required this.receiverId,
+      required this.senderId,
+      this.voiceMessagePath});
 
   @override
-  List<Object> get props => [voiceMessagePath ?? ''];
+  List<Object> get props => [voiceMessagePath ?? '', receiverId, senderId];
 }
 
 class LongPressMoveUpdate extends ChatInputEvent {
@@ -51,11 +58,21 @@ class LongPressMoveUpdate extends ChatInputEvent {
 }
 
 class SendMessage extends ChatInputEvent {
+  final String senderId;
+  final String receiverId;
   final String? message;
   final String? voiceMessagePath;
 
-  const SendMessage(this.message, this.voiceMessagePath);
+  const SendMessage(
+      this.message, this.voiceMessagePath, this.senderId, this.receiverId);
 
   @override
-  List<Object> get props => [message ?? '', voiceMessagePath ?? ''];
+  List<Object> get props =>
+      [message ?? '', voiceMessagePath ?? '', senderId, receiverId];
+}
+
+class UpdateRecordingDuration extends ChatInputEvent {
+  final int newDuration;
+
+  UpdateRecordingDuration(this.newDuration);
 }

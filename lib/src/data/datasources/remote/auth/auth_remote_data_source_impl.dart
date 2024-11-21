@@ -1,6 +1,3 @@
-
-
-
 import 'package:dio/dio.dart';
 
 import '../../../../core/constants/url_constants.dart';
@@ -16,17 +13,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   const AuthRemoteDataSourceImpl(this._dioClient, this._hiveService);
 
-
   @override
-  Future<UserModel> login(String email, String password, bool rememberMe) async {
+  Future<UserModel> login(
+      String email, String password, bool rememberMe) async {
     try {
-      final response = await _dioClient.post(UrlConstants.login, data: {'email': email, 'password': password});
+      final response = await _dioClient.post(UrlConstants.login,
+          data: {'email': email, 'password': password});
       final user = UserModel.fromJson(response.data);
       if (user.id != null) {
         print('User id from response: ${user.id}');
         await _hiveService.saveUserId(user.id!);
         final savedId = await _hiveService.getUserId();
-        print('id saved in Hive: $savedId');;
+        print('id saved in Hive: $savedId');
+        ;
       }
       if (user.token != null) {
         print('User token from response: ${user.token}');
@@ -45,19 +44,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e) {
       rethrow;
     }
-}
-
+  }
 
   @override
   Future<UserModel> signup(
-      String firstName,
-      String lastName,
-      String username,
-      String email,
-      String password,
-      DateTime dateOfBirth,
-      String? profilePhotoPath,
-      ) async {
+    String firstName,
+    String lastName,
+    String username,
+    String email,
+    String password,
+    DateTime dateOfBirth,
+    String? profilePhotoPath,
+  ) async {
     try {
       FormData formData = FormData.fromMap({
         'firstName': firstName,
@@ -67,10 +65,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'password': password,
         'dateOfBirth': dateOfBirth.toIso8601String(),
         if (profilePhotoPath != null)
-          'profilePhoto': await MultipartFile.fromFile(profilePhotoPath, filename: 'profile_photo.jpg'),
+          'profilePhoto': await MultipartFile.fromFile(profilePhotoPath,
+              filename: 'profile_photo.jpg'),
       });
 
-      final response = await _dioClient.post(UrlConstants.signup, data: formData);
+      final response =
+          await _dioClient.post(UrlConstants.signup, data: formData);
       return UserModel.fromJson(response.data);
     } catch (e) {
       rethrow;
@@ -80,7 +80,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> resetPassword(String email) async {
     try {
-      final response = await _dioClient.post('/resetpassword', data: {'email': email});
+      final response =
+          await _dioClient.post('/resetpassword', data: {'email': email});
       return UserModel.fromJson(response.data);
     } catch (e) {
       rethrow;
@@ -96,7 +97,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         print('User id from response: ${user.id}');
         await _hiveService.saveUserId(user.id!);
         final savedId = await _hiveService.getUserId();
-        print('id saved in Hive: $savedId');;
+        print('id saved in Hive: $savedId');
       }
       if (user.refreshToken != null) {
         print('refreshToken from response: ${user.refreshToken}');
@@ -106,8 +107,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
 
       return user;
-
-
     } catch (e) {
       if (e is DioError) {
         if (e.response?.statusCode == 403) {
@@ -118,27 +117,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               // Refresh the token
               final refreshResponse = await _dioClient.post(
                   UrlConstants.refresh_token,
-                  data: {'refreshToken': refreshToken}
-              );
+                  data: {'refreshToken': refreshToken});
               final newToken = refreshResponse.data['token'];
-
 
               // Save the new tokens
               await _hiveService.saveAuthToken(newToken);
 
-
               // Logging for debugging
               print('New token: $newToken');
 
-
               // Retry the original request with the new token
-              final retryOptions = Options(
-                  headers: {'Authorization': 'Bearer $newToken'}
-              );
-              final retryResponse = await _dioClient.get(
-                  UrlConstants.getUser,
-                  options: retryOptions
-              );
+              final retryOptions =
+                  Options(headers: {'Authorization': 'Bearer $newToken'});
+              final retryResponse = await _dioClient.get(UrlConstants.getUser,
+                  options: retryOptions);
 
               // Logging for debugging
               print('Retry response status code: ${retryResponse.statusCode}');
@@ -150,7 +142,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
               if (refreshError is DioError) {
                 throw DioExceptions.fromDioError(refreshError);
               } else {
-                throw Exception('Unexpected error occurred during token refresh');
+                throw Exception(
+                    'Unexpected error occurred during token refresh');
               }
             }
           } else {
@@ -164,6 +157,4 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       }
     }
   }
-
-
 }
